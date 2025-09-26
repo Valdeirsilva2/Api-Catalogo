@@ -20,14 +20,32 @@ public class CategoryController : ControllerBase
     [HttpGet("products")]
     public ActionResult<IEnumerable<Category>> GetCategoriesWithProducts()
     {
-        return _context.Categories.Include(c => c.Products).ToList();
+        try
+        {
+            return _context.Categories.Include(c => c.Products).ToList();
+        }
+        catch (Exception e)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError, 
+                "Erro ao obter categorias e seus produtos \nError: " + e.Message);
+        }
     }
 
     [HttpGet]
     public ActionResult<IEnumerable<Category>> Get()
     {
-        var categories = _context.Categories.ToList();
-        return Ok(categories);
+        try
+        {
+             var categories = _context.Categories.AsNoTracking().ToList();
+             return Ok(categories);
+        }
+        catch (Exception e)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError, 
+                "Ocorreu um erro ao obter categoria \nError: " + e.Message);
+        }
     }
 
     [HttpGet("{id}", Name = "GetCategoryById")]

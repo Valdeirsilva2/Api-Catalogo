@@ -26,6 +26,7 @@ public class Category
     public string? ImageUrl { get; set; }
     
     //Adcionando relacionamento de entre categoria e produto
+    ////O JsonIgnore não será apresentado no objeto do swagger
     [JsonIgnore]
     public ICollection<Product>? Products { get; set; }
 }
