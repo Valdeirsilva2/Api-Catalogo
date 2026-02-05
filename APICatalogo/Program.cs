@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using APICatalogo.Context;
 using APICatalogo.Extensions;
+using APICatalogo.Repository;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,9 @@ builder.Services.AddControllers()
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+//Injetando o repositório
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
  
 var mySqlConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 

@@ -8,7 +8,7 @@ namespace APICatalogo.Model;
 [Table("Categorias")]
 public class Category
 {
-    //Boa prativa inicializar uma coleção 
+    //Boa pratica inicializar uma coleção 
     public Category()
     {
         Products = new Collection<Product>();
