@@ -9,7 +9,7 @@ namespace APICatalogo.Controllers;
 
 [Route("[controller]")]
 [ApiController]
-public class CategoryController(AppDbContext context, ICategoryRepository categoryRepository, ILogger logger) : ControllerBase
+public class CategoryController(AppDbContext context, ICategoryRepository categoryRepository, ILogger<CategoryController> logger) : ControllerBase
 {
 
     [HttpGet("products")]
@@ -17,7 +17,8 @@ public class CategoryController(AppDbContext context, ICategoryRepository catego
     {
         try
         {
-            return context.Categories.Include(c => c.Products).ToList();
+            var categories = categoryRepository.GetCategoriesWithProducts();
+            return Ok(categories);
         }
         catch (Exception e)
         {
@@ -32,7 +33,7 @@ public class CategoryController(AppDbContext context, ICategoryRepository catego
     {
         try
         {
-            var categories = context.Categories.AsNoTracking().ToList();
+            var categories = categoryRepository.GetCategories();
             return Ok(categories);
         }
         catch (Exception e)
@@ -76,25 +77,26 @@ public class CategoryController(AppDbContext context, ICategoryRepository catego
             ImageUrl = dto.ImageUrl
         };
 
-        context.Categories.Add(category);
-        context.SaveChanges(); // Save changes to the database
+        var createdCategory = categoryRepository.CreateCategory(category);
 
-        return new CreatedAtRouteResult("GetCategoryById", new { id = category.CategoryId }, category);
+        return new CreatedAtRouteResult("GetCategoryById", new { id = createdCategory.CategoryId }, createdCategory);
     }
 
     [HttpDelete("{id}")]
     public ActionResult Delete(int id)
     {
-        var category = context.Categories.FirstOrDefault(c => c.CategoryId == id);
-
-        if (category is null)
+        try
+        {
+            var deletedCategory = categoryRepository.DeleteCategory(id);
+            return Ok(deletedCategory);
+        }
+        catch (ArgumentNullException)
         {
             return NotFound("Category not found.");
         }
-
-        context.Categories.Remove(category);
-        context.SaveChanges();
-
-        return Ok(category);
+        catch (Exception e)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "Erro ao deletar categoria \nError: " + e.Message);
+        }
     }
 }

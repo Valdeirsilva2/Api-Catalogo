@@ -1,4 +1,4 @@
-﻿using APICatalogo.Model;
+﻿﻿using APICatalogo.Model;
 
 namespace APICatalogo.Repository
 {
@@ -10,5 +10,6 @@ namespace APICatalogo.Repository
         Category CreateCategory(Category category);
         Category UpdateCategory(Category category);
         Category DeleteCategory(int id);
+        IEnumerable<Category> GetCategoriesWithProducts();
     }
-} 
+}

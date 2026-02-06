@@ -16,8 +16,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-//Injetando o repositório
+//Injetando o repositï¿½rio
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
  
 var mySqlConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 

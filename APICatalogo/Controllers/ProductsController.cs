@@ -1,5 +1,7 @@
 ﻿using APICatalogo.Context;
+using APICatalogo.Dtos;
 using APICatalogo.Model;
+using APICatalogo.Repository;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,14 +9,24 @@ namespace APICatalogo.Controllers;
 
 [Route("[controller]")]
 [ApiController]
-public class ProductsController(AppDbContext context) : ControllerBase
+public class ProductsController(IProductRepository productRepository, ILogger<ProductsController> logger) : ControllerBase
 {
-    private readonly AppDbContext _context = context;
-
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Product>>> GetAsync()
     {
-         return Ok(await _context.Products.AsNoTracking().ToListAsync());
+        try
+        {
+            var products =  productRepository.GetAllProducts();
+            logger.LogInformation("Products retrieved successfully.");
+            return Ok(products);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning("Error retrieving products: {Message}", e.Message);
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "Error retrieving products \nError: " + e.Message);
+        }
     }
 
     [HttpGet("{id:int}", Name = "GetProductById")]
@@ -22,16 +34,12 @@ public class ProductsController(AppDbContext context) : ControllerBase
     {
         try
         {
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == id);
-            if (product == null)
-            {
-                return NotFound("Product not found.");
-            }
-
+            var product = productRepository.GetProductById(id);
             return Ok(product);
         }
         catch (Exception e)
         {
+            logger.LogWarning("Error retrieving product: {Message}", e.Message);
             return StatusCode(
                 StatusCodes.Status500InternalServerError,
                 "Error retrieving product \nError: " + e.Message);
@@ -39,22 +47,22 @@ public class ProductsController(AppDbContext context) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> PostAsync(Product product)
+    public async Task<ActionResult> PostAsync(Product? product)
     {
         try
         {
             if (product is null)
                 return BadRequest("Product cannot be null.");
 
-            product.RegistryDate = DateTime.Now; // <- Definindo a data de registro do produto
-
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync(); // <- função assíncrona para salvar as alterações no banco de dados
-
-            return new CreatedAtRouteResult("GetProductById", new { id = product.ProductId }, product);
+            product.RegistryDate = DateTime.Now;
+            var item = productRepository.CreateProduct(product);
+            logger.LogInformation("Product created successfully.");
+                
+            return Ok(item);
         }
         catch (Exception e)
         {
+            logger.LogWarning("Error creating product: {Message}", e.Message);
             return StatusCode(
                 StatusCodes.Status500InternalServerError,
                 "Error saving product \nError: " + e.Message);
@@ -62,20 +70,33 @@ public class ProductsController(AppDbContext context) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    public ActionResult Put(int id, Product product)
+    public ActionResult Put(int id, ProductUpdateDto productDto)
     {
         try
         {
-            if (id != product.ProductId)
-                return BadRequest("Product ID mismatch.");
+            var existingProduct = productRepository.GetProductById(id);
+            if (existingProduct is null)
+            {
+                logger.LogWarning("Product with id {Id} not found for update", id);
+                return NotFound("Product not found.");
+            }
 
-            _context.Entry(product).State = EntityState.Modified;
-            _context.SaveChanges();
+            // Atualiza apenas os campos permitidos
+            existingProduct.Name = productDto.Name;
+            existingProduct.Description = productDto.Description;
+            existingProduct.Value = productDto.Value;
+            existingProduct.Stock = productDto.Stock;
+            existingProduct.ImageUrl = productDto.ImageUrl;
+            existingProduct.CategoryId = productDto.CategoryId;
+            existingProduct.RegistryDate = productDto.RegistryDate;
 
+            productRepository.UpdateProduct(existingProduct);
+            logger.LogInformation("Product with id {Id} updated successfully.", id);
             return NoContent();
         }
         catch (Exception e)
         {
+            logger.LogWarning("Error updating product: {Message}", e.Message);
             return StatusCode(
                 StatusCodes.Status500InternalServerError,
                 "Error updating product \nError: " + e.Message);
@@ -85,15 +106,25 @@ public class ProductsController(AppDbContext context) : ControllerBase
     [HttpDelete("{id:int}")]
     public ActionResult Delete(int id)
     {
-        var product = _context.Products.FirstOrDefault(p => p.ProductId == id);
-        if (product is null)
+        try
         {
-            return NotFound("Product not found.");
+            var product = productRepository.GetProductById(id);
+            if (product is null)
+            {
+                logger.LogWarning("Product with id {Id} not found for deletion", id);
+                return NotFound("Product not found.");
+            }
+
+            productRepository.DeleteProduct(id);
+            logger.LogInformation("Product with id {Id} deleted successfully.", id);
+            return Ok(product);
         }
-
-        _context.Products.Remove(product);
-        _context.SaveChanges();
-
-        return Ok(product);
+        catch (Exception e)
+        {
+            logger.LogWarning("Error deleting product: {Message}", e.Message);
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "Error deleting product \nError: " + e.Message);
+        }
     }
 }

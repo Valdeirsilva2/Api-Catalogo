@@ -3,7 +3,7 @@ using APICatalogo.Model;
 
 namespace APICatalogo.Repository
 {
-    public class ProductRepository(AppDbContext context, ILogger logger) : IProductRepository
+    public class ProductRepository(AppDbContext context, ILogger<ProductRepository> logger) : IProductRepository
     {
         public Product CreateProduct(Product product)
         {
@@ -38,7 +38,7 @@ namespace APICatalogo.Repository
             return product;
         }
 
-        public IEnumerable<Product> GetProducts()
+        public IEnumerable<Product> GetAllProducts()
         {
             var products = context.Products.ToList();
             if (products is null || !products.Any())
@@ -55,10 +55,24 @@ namespace APICatalogo.Repository
             {
                 throw new ArgumentNullException(nameof(product), "Product cannot be null");
             }
-            context.Entry(product).State = Microsoft.EntityFrameworkCore.EntityState.Modified;
-            context.SaveChanges();
 
-            return product;
+            var existingProduct = context.Products.FirstOrDefault(p => p.ProductId == product.ProductId);
+            if (existingProduct is null)
+            {
+                logger.LogWarning("Product with id {Id} not found for update", product.ProductId);
+                throw new InvalidOperationException("Product not found for update");
+            }
+
+            // Atualiza os campos
+            existingProduct.Name = product.Name;
+            existingProduct.Description = product.Description;
+            existingProduct.Value = product.Value;
+            existingProduct.Stock = product.Stock;
+            existingProduct.ImageUrl = product.ImageUrl;
+            existingProduct.CategoryId = product.CategoryId;
+
+            context.SaveChanges();
+            return existingProduct;
         }
     }
 }

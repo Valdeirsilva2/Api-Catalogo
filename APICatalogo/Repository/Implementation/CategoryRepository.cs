@@ -1,11 +1,10 @@
-﻿using APICatalogo.Context;
+﻿﻿using APICatalogo.Context;
 using APICatalogo.Model;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace APICatalogo.Repository
 {
-    public class CategoryRepository(AppDbContext context, ILogger logger) : ICategoryRepository
+    public class CategoryRepository(AppDbContext context, ILogger<CategoryRepository> logger) : ICategoryRepository
     {
 
         public IEnumerable<Category> GetCategories()
@@ -18,14 +17,13 @@ namespace APICatalogo.Repository
             return categories;
         }
 
-        public Category? GetCategory(int id)
+        public Category GetCategory(int id)
         {
             var category = context.Categories.FirstOrDefault(c => c.CategoryId == id);
             if (category == null)
             {
                 logger.LogInformation("Category not found. Id: {CategoryId}", id);
             }
-
             return category;
         }
         public Category CreateCategory(Category category)
@@ -42,9 +40,8 @@ namespace APICatalogo.Repository
         public Category UpdateCategory(Category category)
         {
             if (category is null)
-                throw new ArgumentException(nameof(category), "Category ID mismatch.");
-
-            context.Entry(category).State = EntityState.Modified;// Marca a entidade como modificada em memória
+                throw new ArgumentNullException(nameof(category), "Category cannot be null.");
+            context.Entry(category).State = EntityState.Modified;
             context.SaveChanges();
 
             return category;
@@ -59,5 +56,14 @@ namespace APICatalogo.Repository
             return category;
         }
 
+        IEnumerable<Category> ICategoryRepository.GetCategoriesWithProducts()
+        {
+            var categories = context.Categories.Include(c => c.Products).ToList();
+            if (categories.Count == 0)
+            {
+                logger.LogInformation("No categories with products found in the database.");
+            }
+            return categories;
+        }
     }
 }

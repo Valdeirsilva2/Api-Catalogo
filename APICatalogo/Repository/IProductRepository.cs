@@ -4,7 +4,7 @@ namespace APICatalogo.Repository
 {
     public interface IProductRepository
     {
-        IEnumerable<Product> GetProducts();
+        IEnumerable<Product> GetAllProducts();
         Product GetProductById(int id);
         Product CreateProduct(Product product);
         Product UpdateProduct(Product product);
