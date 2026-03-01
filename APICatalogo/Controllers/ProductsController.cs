@@ -1,22 +1,42 @@
-﻿using APICatalogo.Context;
-using APICatalogo.Dtos;
-using APICatalogo.Model;
+﻿using APICatalogo.Model;
 using APICatalogo.Repository;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace APICatalogo.Controllers;
 
 [Route("[controller]")]
 [ApiController]
-public class ProductsController(IProductRepository productRepository, ILogger<ProductsController> logger) : ControllerBase
+public class ProductsController(
+    IProductRepository productRepository, // Injeção de dependência do repositório específico para produtos nao e necessaria,
+                                          // mas é uma boa prática para manter a coesão e facilitar a manutenção do código.
+    IRepository<Product> repository, 
+    ILogger<ProductsController> logger,
+    IRepository<Category> categoryRepository) : ControllerBase
 {
+    [HttpGet("products/{id:int}")]
+    public ActionResult<IEnumerable<Product>> GetProductsByCategoryId(int id)
+    {
+        try
+        {
+            var products = productRepository.GetCategoriesWithProducts(id);
+            logger.LogInformation("Products for category id {Id} retrieved successfully.", id);
+            return Ok(products);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning("Error retrieving products for category id {Id}: {Message}", id, e.Message);
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                "Error retrieving products for category \nError: " + e.Message);
+        }
+    }
+    
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Product>>> GetAsync()
     {
         try
         {
-            var products =  productRepository.GetAllProducts();
+            var products =  repository.GetAll();
             logger.LogInformation("Products retrieved successfully.");
             return Ok(products);
         }
@@ -34,7 +54,7 @@ public class ProductsController(IProductRepository productRepository, ILogger<Pr
     {
         try
         {
-            var product = productRepository.GetProductById(id);
+            var product = repository.Get(p => p.ProductId == id);
             return Ok(product);
         }
         catch (Exception e)
@@ -54,8 +74,16 @@ public class ProductsController(IProductRepository productRepository, ILogger<Pr
             if (product is null)
                 return BadRequest("Product cannot be null.");
 
+            // Validação: categoria existe?
+            var category = categoryRepository.Get(c => c.CategoryId == product.CategoryId);
+            if (category is null)
+            {
+                logger.LogWarning("Categoria com id {CategoryId} não existe ao tentar criar produto.", product.CategoryId);
+                return BadRequest($"Categoria com id {product.CategoryId} não existe.");
+            }
+
             product.RegistryDate = DateTime.Now;
-            var item = productRepository.CreateProduct(product);
+            var item = productRepository.Create(product);
             logger.LogInformation("Product created successfully.");
                 
             return Ok(item);
@@ -70,29 +98,18 @@ public class ProductsController(IProductRepository productRepository, ILogger<Pr
     }
 
     [HttpPut("{id:int}")]
-    public ActionResult Put(int id, ProductUpdateDto productDto)
+    public ActionResult Put(int id, Product product)
     {
         try
         {
-            var existingProduct = productRepository.GetProductById(id);
-            if (existingProduct is null)
+            if (id != product.ProductId)
             {
                 logger.LogWarning("Product with id {Id} not found for update", id);
                 return NotFound("Product not found.");
             }
-
-            // Atualiza apenas os campos permitidos
-            existingProduct.Name = productDto.Name;
-            existingProduct.Description = productDto.Description;
-            existingProduct.Value = productDto.Value;
-            existingProduct.Stock = productDto.Stock;
-            existingProduct.ImageUrl = productDto.ImageUrl;
-            existingProduct.CategoryId = productDto.CategoryId;
-            existingProduct.RegistryDate = productDto.RegistryDate;
-
-            productRepository.UpdateProduct(existingProduct);
+            var productUpdated = repository.Update(product);
             logger.LogInformation("Product with id {Id} updated successfully.", id);
-            return NoContent();
+            return Ok(productUpdated);
         }
         catch (Exception e)
         {
@@ -108,16 +125,16 @@ public class ProductsController(IProductRepository productRepository, ILogger<Pr
     {
         try
         {
-            var product = productRepository.GetProductById(id);
+            var product = repository.Get(p=> p.ProductId == id);
             if (product is null)
             {
                 logger.LogWarning("Product with id {Id} not found for deletion", id);
                 return NotFound("Product not found.");
             }
 
-            productRepository.DeleteProduct(id);
+            var deletedProduct = repository.Delete(product);
             logger.LogInformation("Product with id {Id} deleted successfully.", id);
-            return Ok(product);
+            return Ok(deletedProduct);
         }
         catch (Exception e)
         {
